@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace OpenVoiceSharp
 {
@@ -14,7 +14,7 @@ namespace OpenVoiceSharp
     /// Useful for Unity or other engines that do not support streamed pcm reading by default.
     /// </summary>
     /// <typeparam name="T">Byte/short/float depending on your needs.</typeparam>
-    public struct CircularAudioBuffer<T> where T: struct
+    public struct CircularAudioBuffer<T> where T : struct
     {
         /// <summary>
         /// The raw length of the buffer, in samples.
@@ -26,7 +26,7 @@ namespace OpenVoiceSharp
         public int ChunkSize { get; private set; }
 
         public readonly int BufferAvailable => ChunksAvailable * ChunkSize;
-        public int ChunksAvailable = 0;
+        public int ChunksAvailable;
 
         private readonly T[] Buffer;
 
@@ -34,8 +34,6 @@ namespace OpenVoiceSharp
 
         public readonly bool CanReadChunk => ChunksAvailable > 0;
 
-        // no need to do a for loop to rewrite the buffer.
-        // just dont give it.
         /// <summary>
         /// Reads the first chunk available at the front of the buffer.
         /// </summary>
@@ -45,11 +43,14 @@ namespace OpenVoiceSharp
             if (!CanReadChunk)
                 throw new Exception("No chunks are available.");
 
-            // slice the chunk
-            T[] chunk = Buffer[ChunksAvailable..ChunkSize];
+            // copy the first chunk out
+            T[] chunk = new T[ChunkSize];
+            Array.Copy(Buffer, 0, chunk, 0, ChunkSize);
 
-            // grab the rest and put it at the front
-            chunk.CopyTo(Buffer[ChunkSize..BufferLength], 0);
+            // shift remaining data to the front
+            int remaining = (ChunksAvailable - 1) * ChunkSize;
+            if (remaining > 0)
+                Array.Copy(Buffer, ChunkSize, Buffer, 0, remaining);
 
             ChunksAvailable--;
 
@@ -91,13 +92,11 @@ namespace OpenVoiceSharp
         /// <param name="chunk">Chunk/frame</param>
         public void PushChunk(T[] chunk)
         {
-            // push chunk back if not full
             if (BufferFull) return;
 
-            // if size doesnt match
-            if (chunk.Length != ChunkSize) throw new Exception($"Invalid chunk size. Submitted {chunk.Length} - should be {ChunkSize}");
+            if (chunk.Length != ChunkSize)
+                throw new Exception($"Invalid chunk size. Submitted {chunk.Length} - should be {ChunkSize}");
 
-            // copy to
             Array.Copy(chunk, 0, Buffer, BufferAvailable, chunk.Length);
             ChunksAvailable++;
         }
@@ -112,7 +111,9 @@ namespace OpenVoiceSharp
             ChunkSize = chunkSize;
             BufferLength = chunkSize * amountOfChunks;
             Buffer = new T[BufferLength];
+            ChunksAvailable = 0;
         }
+
         /// <summary>
         /// Creates a circular audio buffer.
         /// </summary>

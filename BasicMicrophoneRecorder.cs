@@ -1,4 +1,4 @@
-﻿using NAudio.Wave;
+using NAudio.Wave;
 
 namespace OpenVoiceSharp
 {
@@ -32,7 +32,7 @@ namespace OpenVoiceSharp
             WaveInCapabilities[] microphones = GetMicrophones();
             if (index > microphones.Length - 1) return;
 
-            CurrentMicrophone = GetMicrophones()[index];
+            CurrentMicrophone = microphones[index];
             CurrentMicrophoneIndex = index;
 
             AudioInputChanged?.Invoke(CurrentMicrophoneIndex, CurrentMicrophone);
@@ -52,13 +52,15 @@ namespace OpenVoiceSharp
 
         // recording
         public bool IsRecording { get; private set; } = false;
+
         public void StartRecording()
         {
-            if (IsRecording) return;   
+            if (IsRecording) return;
             IsRecording = true;
 
             MicrophoneRecorder.StartRecording();
         }
+
         public void StopRecording()
         {
             if (!IsRecording) return;
@@ -66,9 +68,9 @@ namespace OpenVoiceSharp
 
             MicrophoneRecorder.StopRecording();
         }
+
         private void WhenRecordingStopped(object? sender, StoppedEventArgs e) => RecordingStopped?.Invoke(e);
         private void WhenDataAvailable(object? sender, WaveInEventArgs e) => DataAvailable?.Invoke(e.Buffer, e.BytesRecorded);
-
 
         public BasicMicrophoneRecorder(bool stereo = false)
         {

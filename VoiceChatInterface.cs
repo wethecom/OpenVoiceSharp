@@ -1,4 +1,4 @@
-﻿using OpusDotNet;
+using OpusDotNet;
 using RNNoise.NET;
 using WebRtcVadSharp;
 
@@ -54,7 +54,6 @@ namespace OpenVoiceSharp
             SampleRate = WebRtcVadSharp.SampleRate.Is48kHz
         };
 
-        
         /// <summary>
         /// Returns if voice activity was detected using the WebRTC VAD.
         /// </summary>
@@ -81,12 +80,13 @@ namespace OpenVoiceSharp
         /// Encodes and processes audio data. Also handles noise suppression if needed.
         /// </summary>
         /// <param name="pcmData">The 16 bit PCM data according to your needs.</param>
+        /// <param name="length">The length of the data</param>
         /// <returns>The encoded Opus data, along with its length.</returns>
         public (byte[] encodedOpusData, int encodedLength) SubmitAudioData(byte[] pcmData, int length)
         {
             if (EnableNoiseSuppression)
                 ApplyNoiseSuppression(pcmData);
-            
+
             return (OpusEncoder.Encode(pcmData, length, out int encodedLength), encodedLength);
         }
 
@@ -108,10 +108,10 @@ namespace OpenVoiceSharp
         /// <param name="favorAudioStreaming">Favor audio streaming and less compressed packets to favor audio quality.</param>
         /// <param name="vadOperatingMode">The VAD (voice activity detection) operating mode.</param>
         public VoiceChatInterface(
-            int bitrate = DefaultBitrate, 
-            bool stereo = false, 
+            int bitrate = DefaultBitrate,
+            bool stereo = false,
             bool enableNoiseSuppression = true,
-            bool favorAudioStreaming = false, 
+            bool favorAudioStreaming = false,
             OperatingMode? vadOperatingMode = null
         ) {
             Bitrate = bitrate;
@@ -134,7 +134,8 @@ namespace OpenVoiceSharp
                 ForceChannels = Stereo ? ForceChannels.Stereo : ForceChannels.Mono
             };
 
-            OpusDecoder = new(FrameLength, SampleRate, channels);
+            // OpusDecoder takes (sampleRate, channels) — FrameLength is not a parameter
+            OpusDecoder = new(SampleRate, channels);
 
             if (vadOperatingMode != null)
                 VoiceActivityDetector.OperatingMode = (OperatingMode)vadOperatingMode;
