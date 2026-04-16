@@ -2,12 +2,13 @@
 {
     internal static class Example
     {
-        static VoiceChatInterface voiceChatInterface = new();
+        private static readonly VoiceChatInterface VoiceChatInterface = new();
+        private static readonly int ExpectedFrameSize = VoiceUtilities.GetSampleSize(1);
 
         // basic recorder
         public static void Main()
         {
-            BasicMicrophoneRecorder recorder = new();
+            using BasicMicrophoneRecorder recorder = new();
 
             recorder.DataAvailable += WhenDataAvailable;
             recorder.StartRecording();
@@ -16,7 +17,11 @@
         // encoding & sending
         private static void WhenDataAvailable(byte[] pcmData, int length)
         {
-            (byte[] encodedData, int encodedLength) = voiceChatInterface.SubmitAudioData(pcmData, length);
+            // Ignore incomplete frames that can occasionally happen at stream boundaries.
+            if (length != ExpectedFrameSize)
+                return;
+
+            (byte[] encodedData, int encodedLength) = VoiceChatInterface.SubmitAudioData(pcmData, length);
             Send(encodedData, encodedLength);
         }
         private static void Send(byte[] encodedData, int encodedLength)
@@ -28,7 +33,7 @@
         private static void WhenVoicePacketReceived(byte[] encodedData, int encodedLength)
         {
             // here we assume that encodedData contains the bytes of the opus encoded data
-            (byte[] decodedData, int decodedLength) = voiceChatInterface.WhenDataReceived(encodedData, encodedLength);
+            (byte[] decodedData, int decodedLength) = VoiceChatInterface.WhenDataReceived(encodedData, encodedLength);
             SubmitBuffer(decodedData, decodedLength);
         }
 
