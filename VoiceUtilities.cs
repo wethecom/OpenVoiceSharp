@@ -28,14 +28,33 @@
         /// <param name="output">The output data in which the result will be returned.</param>
         /// <returns>The 16 bit byte array.</returns>
         public static void Convert16BitToFloat(byte[] input, float[] output)
-        {
-            int outputIndex = 0;
-            short sample;
+            => Convert16BitToFloat(input, output, input.Length);
 
-            for (int n = 0; n < output.Length; n++)
+        /// <summary>
+        /// Converts 16 bit PCM data into float 32 for a specific input length.
+        /// </summary>
+        /// <param name="input">The 16 bit PCM data according to your needs.</param>
+        /// <param name="output">The output data in which the result will be returned.</param>
+        /// <param name="inputLengthBytes">How many bytes to convert from <paramref name="input"/>.</param>
+        public static void Convert16BitToFloat(byte[] input, float[] output, int inputLengthBytes)
+        {
+            if (input is null)
+                throw new ArgumentNullException(nameof(input));
+            if (output is null)
+                throw new ArgumentNullException(nameof(output));
+            if (inputLengthBytes < 0 || inputLengthBytes > input.Length)
+                throw new ArgumentOutOfRangeException(nameof(inputLengthBytes));
+            if ((inputLengthBytes & 1) != 0)
+                throw new ArgumentException("Input length must be even for 16-bit PCM.", nameof(inputLengthBytes));
+
+            int samples = inputLengthBytes / 2;
+            if (output.Length < samples)
+                throw new ArgumentException("Output buffer is too small for the requested input length.", nameof(output));
+
+            for (int n = 0; n < samples; n++)
             {
-                sample = BitConverter.ToInt16(input, n * 2);
-                output[outputIndex++] = sample / 32768f;
+                short sample = BitConverter.ToInt16(input, n * 2);
+                output[n] = sample / 32768f;
             }
         }
 
@@ -47,12 +66,37 @@
         /// <param name="output">The output data in which the result will be returned.</param>
         /// <returns>The float32 PCM array.</returns>
         public static void ConvertFloatTo16Bit(float[] input, byte[] output)
-        {
-            int sampleIndex = 0, pcmIndex = 0;
+            => ConvertFloatTo16Bit(input, output, output.Length);
 
-            while (sampleIndex < input.Length)
+        /// <summary>
+        /// Converts float 32 PCM data into 16 bit for a specific output length.
+        /// </summary>
+        /// <param name="input">The float 32 PCM data according to your needs.</param>
+        /// <param name="output">The output data in which the result will be returned.</param>
+        /// <param name="outputLengthBytes">How many bytes to write into <paramref name="output"/>.</param>
+        public static void ConvertFloatTo16Bit(float[] input, byte[] output, int outputLengthBytes)
+        {
+            if (input is null)
+                throw new ArgumentNullException(nameof(input));
+            if (output is null)
+                throw new ArgumentNullException(nameof(output));
+            if (outputLengthBytes < 0 || outputLengthBytes > output.Length)
+                throw new ArgumentOutOfRangeException(nameof(outputLengthBytes));
+            if ((outputLengthBytes & 1) != 0)
+                throw new ArgumentException("Output length must be even for 16-bit PCM.", nameof(outputLengthBytes));
+
+            int samples = outputLengthBytes / 2;
+            if (input.Length < samples)
+                throw new ArgumentException("Input buffer is too small for the requested output length.", nameof(input));
+
+            int sampleIndex = 0, pcmIndex = 0;
+            while (sampleIndex < samples)
             {
-                short outsample = (short)(input[sampleIndex] * short.MaxValue);
+                float sample = input[sampleIndex];
+                if (sample > 1f) sample = 1f;
+                else if (sample < -1f) sample = -1f;
+
+                short outsample = (short)(sample * short.MaxValue);
                 output[pcmIndex] = (byte)(outsample & 0xff);
                 output[pcmIndex + 1] = (byte)((outsample >> 8) & 0xff);
 

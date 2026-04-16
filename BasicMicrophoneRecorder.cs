@@ -5,17 +5,17 @@ namespace OpenVoiceSharp
     /// <summary>
     /// Handles basic microphone recording for a voice chat interface using NAudio.
     /// </summary>
-    public sealed class BasicMicrophoneRecorder
+    public sealed class BasicMicrophoneRecorder : IDisposable
     {
         // events
         public delegate void AudioInputChangedEvent(int index, WaveInCapabilities microphone);
-        public event AudioInputChangedEvent AudioInputChanged;
+        public event AudioInputChangedEvent? AudioInputChanged;
 
         public delegate void MicrophoneDataAvailableEvent(byte[] pcmData, int length);
-        public event MicrophoneDataAvailableEvent DataAvailable;
+        public event MicrophoneDataAvailableEvent? DataAvailable;
 
         public delegate void MicrophoneStoppedRecordingEvent(StoppedEventArgs arguments);
-        public event MicrophoneStoppedRecordingEvent RecordingStopped;
+        public event MicrophoneStoppedRecordingEvent? RecordingStopped;
 
         // wave format/recorder
         private readonly WaveFormat WaveFormat;
@@ -24,18 +24,30 @@ namespace OpenVoiceSharp
         // setting to a specific microphone
         public int CurrentMicrophoneIndex { get; private set; } = 0; // default
         public WaveInCapabilities CurrentMicrophone { get; private set; }
+        private bool IsDisposed;
 
         public void SetMicrophone(int index)
         {
-            if (index < 0) return;
+            ThrowIfDisposed();
 
             WaveInCapabilities[] microphones = GetMicrophones();
-            if (index > microphones.Length - 1) return;
+            if (microphones.Length == 0)
+                throw new InvalidOperationException("No microphones are available.");
+            if (index < 0 || index >= microphones.Length)
+                throw new ArgumentOutOfRangeException(nameof(index));
+
+            bool wasRecording = IsRecording;
+            if (wasRecording)
+                StopRecording();
 
             CurrentMicrophone = microphones[index];
             CurrentMicrophoneIndex = index;
+            MicrophoneRecorder.DeviceNumber = CurrentMicrophoneIndex;
 
             AudioInputChanged?.Invoke(CurrentMicrophoneIndex, CurrentMicrophone);
+
+            if (wasRecording)
+                StartRecording();
         }
 
         public static WaveInCapabilities[] GetMicrophones()
@@ -55,6 +67,7 @@ namespace OpenVoiceSharp
 
         public void StartRecording()
         {
+            ThrowIfDisposed();
             if (IsRecording) return;
             IsRecording = true;
 
@@ -63,6 +76,7 @@ namespace OpenVoiceSharp
 
         public void StopRecording()
         {
+            ThrowIfDisposed();
             if (!IsRecording) return;
             IsRecording = false;
 
@@ -89,6 +103,32 @@ namespace OpenVoiceSharp
 
             // set to default microphone
             SetToDefaultMicrophone();
+        }
+
+        public void Dispose()
+        {
+            if (IsDisposed) return;
+
+            try
+            {
+                if (IsRecording)
+                    MicrophoneRecorder.StopRecording();
+            }
+            catch
+            {
+                // ignored: dispose should not throw on shutdown paths
+            }
+
+            MicrophoneRecorder.DataAvailable -= WhenDataAvailable;
+            MicrophoneRecorder.RecordingStopped -= WhenRecordingStopped;
+            MicrophoneRecorder.Dispose();
+            IsDisposed = true;
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (IsDisposed)
+                throw new ObjectDisposedException(nameof(BasicMicrophoneRecorder));
         }
     }
 }

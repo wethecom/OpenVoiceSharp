@@ -41,7 +41,7 @@ namespace OpenVoiceSharp
         public T[] ReadChunk()
         {
             if (!CanReadChunk)
-                throw new Exception("No chunks are available.");
+                throw new InvalidOperationException("No chunks are available.");
 
             // copy the first chunk out
             T[] chunk = new T[ChunkSize];
@@ -62,7 +62,15 @@ namespace OpenVoiceSharp
         /// </summary>
         /// <param name="target">The target buffer to which it'll be copied to</param>
         /// <param name="offset">The begin offset to which it'll begin copying to</param>
-        public void ReadChunkTo(T[] target, int offset = 0) => ReadChunk().CopyTo(target, offset);
+        public void ReadChunkTo(T[] target, int offset = 0)
+        {
+            if (target is null)
+                throw new ArgumentNullException(nameof(target));
+            if (offset < 0 || offset > target.Length - ChunkSize)
+                throw new ArgumentOutOfRangeException(nameof(offset));
+
+            ReadChunk().CopyTo(target, offset);
+        }
 
         /// <summary>
         /// Reads all the buffer that is available.
@@ -84,7 +92,16 @@ namespace OpenVoiceSharp
         /// </summary>
         /// <param name="target">The target buffer to which it'll be copied to</param>
         /// <param name="offset">The begin offset to which it'll begin copying to</param>
-        public void ReadAllBufferTo(T[] target, int offset = 0) => ReadAllBuffer().CopyTo(target, offset);
+        public void ReadAllBufferTo(T[] target, int offset = 0)
+        {
+            if (target is null)
+                throw new ArgumentNullException(nameof(target));
+            int available = BufferAvailable;
+            if (offset < 0 || offset > target.Length - available)
+                throw new ArgumentOutOfRangeException(nameof(offset));
+
+            ReadAllBuffer().CopyTo(target, offset);
+        }
 
         /// <summary>
         /// Pushes a chunk into the buffer. Will be ignored if the buffer is full. (no overflow)
@@ -92,10 +109,15 @@ namespace OpenVoiceSharp
         /// <param name="chunk">Chunk/frame</param>
         public void PushChunk(T[] chunk)
         {
+            if (chunk is null)
+                throw new ArgumentNullException(nameof(chunk));
             if (BufferFull) return;
 
             if (chunk.Length != ChunkSize)
-                throw new Exception($"Invalid chunk size. Submitted {chunk.Length} - should be {ChunkSize}");
+                throw new ArgumentException(
+                    $"Invalid chunk size. Submitted {chunk.Length} - should be {ChunkSize}",
+                    nameof(chunk)
+                );
 
             Array.Copy(chunk, 0, Buffer, BufferAvailable, chunk.Length);
             ChunksAvailable++;
@@ -108,6 +130,11 @@ namespace OpenVoiceSharp
         /// <param name="amountOfChunks">Amount of chunks the circular audio buffer can take in. Higher values are usually more stable and lower values usually cause more audio cracking, but will do more latency (20 * amountOfChunks ms).</param>
         public CircularAudioBuffer(int chunkSize, int amountOfChunks = 18)
         {
+            if (chunkSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(chunkSize));
+            if (amountOfChunks <= 0)
+                throw new ArgumentOutOfRangeException(nameof(amountOfChunks));
+
             ChunkSize = chunkSize;
             BufferLength = chunkSize * amountOfChunks;
             Buffer = new T[BufferLength];
