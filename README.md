@@ -52,6 +52,22 @@ So upon learning how to make VoIP myself, I decided to share the knowledge into 
 
 Everything you need to know or do can be found [in the wiki](https://github.com/realcoloride/OpenVoiceSharp/wiki).
 
+## Authoritative Server
+
+This repository now includes a basic UDP authoritative voice server project:
+
+- `OpenVoiceSharp.AuthoritativeServer`
+
+Run it with:
+
+```bash
+dotnet run --project OpenVoiceSharp.AuthoritativeServer -- --port 7777
+```
+
+Protocol details are documented in:
+
+- `docs/AUTHORITATIVE_SERVER_PROTOCOL.md`
+
 ## Contribute
 
 If you wish to contribute, you have a few ways:

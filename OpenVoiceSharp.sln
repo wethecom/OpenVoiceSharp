@@ -5,6 +5,8 @@ VisualStudioVersion = 17.7.34024.191
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenVoiceSharp", "OpenVoiceSharp.csproj", "{9AB99863-C04D-4CC2-A43D-71F174566DEC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenVoiceSharp.AuthoritativeServer", "OpenVoiceSharp.AuthoritativeServer\OpenVoiceSharp.AuthoritativeServer.csproj", "{3D18F3C8-5B28-4809-B0B7-F49FD9FDD700}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +17,10 @@ Global
 		{9AB99863-C04D-4CC2-A43D-71F174566DEC}.Debug|x64.Build.0 = Debug|x64
 		{9AB99863-C04D-4CC2-A43D-71F174566DEC}.Release|x64.ActiveCfg = Release|x64
 		{9AB99863-C04D-4CC2-A43D-71F174566DEC}.Release|x64.Build.0 = Release|x64
+		{3D18F3C8-5B28-4809-B0B7-F49FD9FDD700}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3D18F3C8-5B28-4809-B0B7-F49FD9FDD700}.Debug|x64.Build.0 = Debug|Any CPU
+		{3D18F3C8-5B28-4809-B0B7-F49FD9FDD700}.Release|x64.ActiveCfg = Release|Any CPU
+		{3D18F3C8-5B28-4809-B0B7-F49FD9FDD700}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

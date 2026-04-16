@@ -25,6 +25,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="OpenVoiceSharp.AuthoritativeServer\**\*.cs" />
+    <None Remove="OpenVoiceSharp.AuthoritativeServer\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="OpusDotNet" Version="1.0.3" />
     <PackageReference Include="System.Memory" Version="4.5.5" />
