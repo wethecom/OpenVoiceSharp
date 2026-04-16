@@ -64,6 +64,10 @@ namespace OpenVoiceSharp
 
         // stores float samples if needed
         private readonly float[] FloatSamples;
+        private readonly byte[] EncodeBuffer;
+        private readonly byte[] DecodeBuffer;
+        private readonly object EncodeLock = new();
+        private readonly object DecodeLock = new();
         private bool IsDisposed;
 
         private void ApplyNoiseSuppression(byte[] pcmData, int length)
@@ -97,10 +101,16 @@ namespace OpenVoiceSharp
                     nameof(length)
                 );
 
-            if (EnableNoiseSuppression)
-                ApplyNoiseSuppression(pcmData, length);
+            lock (EncodeLock)
+            {
+                if (EnableNoiseSuppression)
+                    ApplyNoiseSuppression(pcmData, length);
 
-            return (OpusEncoder.Encode(pcmData, length, out int encodedLength), encodedLength);
+                int encodedLength = OpusEncoder.Encode(pcmData, length, EncodeBuffer, EncodeBuffer.Length);
+                byte[] encodedData = new byte[encodedLength];
+                Buffer.BlockCopy(EncodeBuffer, 0, encodedData, 0, encodedLength);
+                return (encodedData, encodedLength);
+            }
         }
 
         /// <summary>
@@ -117,7 +127,13 @@ namespace OpenVoiceSharp
             if (length <= 0 || length > encodedData.Length)
                 throw new ArgumentOutOfRangeException(nameof(length));
 
-            return (OpusDecoder.Decode(encodedData, length, out int decodedLength), decodedLength);
+            lock (DecodeLock)
+            {
+                int decodedLength = OpusDecoder.Decode(encodedData, length, DecodeBuffer, DecodeBuffer.Length);
+                byte[] decodedData = new byte[decodedLength];
+                Buffer.BlockCopy(DecodeBuffer, 0, decodedData, 0, decodedLength);
+                return (decodedData, decodedLength);
+            }
         }
 
         /// <summary>
@@ -146,6 +162,8 @@ namespace OpenVoiceSharp
 
             // fill float samples for noise suppression
             FloatSamples = new float[PcmFrameSize / 2];
+            EncodeBuffer = new byte[PcmFrameSize];
+            DecodeBuffer = new byte[PcmFrameSize];
 
             // create opus encoder/decoder
             OpusEncoder = new(
@@ -153,10 +171,11 @@ namespace OpenVoiceSharp
                 SampleRate,
                 channels
             ) {
-                Bitrate = Bitrate,
                 VBR = false,
                 ForceChannels = Stereo ? ForceChannels.Stereo : ForceChannels.Mono
             };
+            // OpusDotNet 1.0.3 exposes bitrate through an obsolete property but still provides the setter method.
+            typeof(OpusEncoder).GetMethod("set_Bitrate")?.Invoke(OpusEncoder, new object[] { Bitrate });
 
             // OpusDecoder takes (sampleRate, channels) — FrameLength is not a parameter
             OpusDecoder = new(SampleRate, channels);

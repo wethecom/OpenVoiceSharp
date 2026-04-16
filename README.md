@@ -68,6 +68,34 @@ Protocol details are documented in:
 
 - `docs/AUTHORITATIVE_SERVER_PROTOCOL.md`
 
+Client helper in the main library:
+
+- `AuthoritativeVoiceClient`
+
+Example:
+
+```csharp
+var client = new AuthoritativeVoiceClient("127.0.0.1", 7777, "lobby", "PlayerOne");
+await client.ConnectAsync();
+
+client.VoicePacketReceived += (speakerId, sequence, payload, length) =>
+{
+    // decode payload with VoiceChatInterface.WhenDataReceived(...)
+};
+```
+
+One-call session helper:
+
+```csharp
+var session = new AuthoritativeVoiceSession("127.0.0.1", 7777, "lobby", "PlayerOne");
+session.VoiceFrameDecoded += (speakerId, sequence, pcmData, length) =>
+{
+    // submit pcmData to your playback pipeline
+};
+
+await session.StartAsync();
+```
+
 ## Contribute
 
 If you wish to contribute, you have a few ways:
