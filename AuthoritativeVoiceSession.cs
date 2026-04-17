@@ -30,6 +30,7 @@ namespace OpenVoiceSharp
             int serverPort,
             string roomName,
             string userName,
+            string? authToken = null,
             int bitrate = VoiceChatInterface.DefaultBitrate,
             bool stereo = false,
             bool enableNoiseSuppression = true,
@@ -37,7 +38,7 @@ namespace OpenVoiceSharp
             OperatingMode? vadOperatingMode = null
         )
         {
-            Client = new AuthoritativeVoiceClient(serverHost, serverPort, roomName, userName);
+            Client = new AuthoritativeVoiceClient(serverHost, serverPort, roomName, userName, authToken);
             VoiceChatInterface = new VoiceChatInterface(
                 bitrate,
                 stereo,

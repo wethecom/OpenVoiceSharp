@@ -8,7 +8,8 @@ internal enum ClientPacketType : byte
     Hello = 1,
     Voice = 2,
     Leave = 3,
-    Ping = 4
+    Ping = 4,
+    AuthHello = 5
 }
 
 internal enum ServerPacketType : byte
@@ -28,7 +29,8 @@ internal enum ErrorCode : byte
     UnauthorizedEndpoint = 3,
     RoomFull = 4,
     RateLimited = 5,
-    PayloadTooLarge = 6
+    PayloadTooLarge = 6,
+    AuthFailed = 7
 }
 
 internal static class Protocol
@@ -90,6 +92,47 @@ internal static class Protocol
 
         payload = packet.Slice(23, payloadLength);
         return true;
+    }
+
+    public static bool TryReadAuthHello(
+        ReadOnlySpan<byte> packet,
+        out Guid clientId,
+        out string room,
+        out string userName,
+        out string authToken
+    )
+    {
+        clientId = Guid.Empty;
+        room = string.Empty;
+        userName = string.Empty;
+        authToken = string.Empty;
+
+        // Type(1) + ClientId(16) + RoomLen(1) + UserLen(1) + TokenLen(2)
+        if (packet.Length < 21 || packet[0] != (byte)ClientPacketType.AuthHello)
+            return false;
+
+        clientId = new Guid(packet.Slice(1, 16));
+        byte roomLength = packet[17];
+        int roomStart = 18;
+        int userLenIndex = roomStart + roomLength;
+        if (packet.Length < userLenIndex + 1)
+            return false;
+
+        byte userLength = packet[userLenIndex];
+        int userStart = userLenIndex + 1;
+        int tokenLenIndex = userStart + userLength;
+        if (packet.Length < tokenLenIndex + 2)
+            return false;
+
+        ushort tokenLength = BinaryPrimitives.ReadUInt16LittleEndian(packet.Slice(tokenLenIndex, 2));
+        int tokenStart = tokenLenIndex + 2;
+        if (packet.Length != tokenStart + tokenLength)
+            return false;
+
+        room = Encoding.UTF8.GetString(packet.Slice(roomStart, roomLength));
+        userName = Encoding.UTF8.GetString(packet.Slice(userStart, userLength));
+        authToken = Encoding.UTF8.GetString(packet.Slice(tokenStart, tokenLength));
+        return room.Length > 0 && userName.Length > 0 && authToken.Length > 0;
     }
 
     public static bool TryReadLeave(ReadOnlySpan<byte> packet, out Guid clientId)

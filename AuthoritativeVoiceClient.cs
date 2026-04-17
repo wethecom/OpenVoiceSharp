@@ -17,6 +17,7 @@ namespace OpenVoiceSharp
         private const byte ClientVoice = 2;
         private const byte ClientLeave = 3;
         private const byte ClientPing = 4;
+        private const byte ClientAuthHello = 5;
 
         private const byte ServerWelcome = 11;
         private const byte ServerVoiceRelay = 12;
@@ -52,6 +53,7 @@ namespace OpenVoiceSharp
         public int ServerPort { get; }
         public string RoomName { get; private set; }
         public string UserName { get; private set; }
+        public string? AuthToken { get; }
         public Guid ClientId { get; }
         public bool IsConnected { get; private set; }
 
@@ -68,6 +70,7 @@ namespace OpenVoiceSharp
             int serverPort,
             string roomName,
             string userName,
+            string? authToken = null,
             Guid? clientId = null
         )
         {
@@ -84,6 +87,7 @@ namespace OpenVoiceSharp
             ServerPort = serverPort;
             RoomName = roomName.Trim();
             UserName = userName.Trim();
+            AuthToken = string.IsNullOrWhiteSpace(authToken) ? null : authToken.Trim();
             ClientId = clientId ?? Guid.NewGuid();
         }
 
@@ -112,7 +116,9 @@ namespace OpenVoiceSharp
             PendingWelcomeTaskCompletionSource = new TaskCompletionSource<Guid>(TaskCreationOptions.RunContinuationsAsynchronously);
             ReceiveTask = Task.Run(ReceiveLoopAsync);
 
-            byte[] helloPacket = BuildHelloPacket(ClientId, RoomName, UserName);
+            byte[] helloPacket = string.IsNullOrWhiteSpace(AuthToken)
+                ? BuildHelloPacket(ClientId, RoomName, UserName)
+                : BuildAuthHelloPacket(ClientId, RoomName, UserName, AuthToken);
             await UdpClient.SendAsync(helloPacket, helloPacket.Length, ServerEndpoint).ConfigureAwait(false);
 
             Task delayTask = Task.Delay(handshakeTimeoutMs);
@@ -426,6 +432,34 @@ namespace OpenVoiceSharp
             BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(17, 4), sequence);
             BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(21, 2), (ushort)payloadLength);
             Buffer.BlockCopy(payload, 0, packet, 23, payloadLength);
+            return packet;
+        }
+
+        private static byte[] BuildAuthHelloPacket(Guid clientId, string roomName, string userName, string authToken)
+        {
+            byte[] roomNameBytes = Encoding.UTF8.GetBytes(roomName);
+            byte[] userNameBytes = Encoding.UTF8.GetBytes(userName);
+            byte[] authTokenBytes = Encoding.UTF8.GetBytes(authToken);
+            if (roomNameBytes.Length > byte.MaxValue)
+                throw new ArgumentException("Room name is too long after UTF8 encoding.", nameof(roomName));
+            if (userNameBytes.Length > byte.MaxValue)
+                throw new ArgumentException("User name is too long after UTF8 encoding.", nameof(userName));
+            if (authTokenBytes.Length > ushort.MaxValue)
+                throw new ArgumentException("Auth token is too long after UTF8 encoding.", nameof(authToken));
+
+            byte[] packet = new byte[21 + roomNameBytes.Length + userNameBytes.Length + authTokenBytes.Length];
+            packet[0] = ClientAuthHello;
+            clientId.TryWriteBytes(packet.AsSpan(1, 16));
+            packet[17] = (byte)roomNameBytes.Length;
+            roomNameBytes.CopyTo(packet.AsSpan(18));
+
+            int userLengthIndex = 18 + roomNameBytes.Length;
+            packet[userLengthIndex] = (byte)userNameBytes.Length;
+            userNameBytes.CopyTo(packet.AsSpan(userLengthIndex + 1));
+
+            int tokenLengthIndex = userLengthIndex + 1 + userNameBytes.Length;
+            BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(tokenLengthIndex, 2), (ushort)authTokenBytes.Length);
+            authTokenBytes.CopyTo(packet.AsSpan(tokenLengthIndex + 2));
             return packet;
         }
     }

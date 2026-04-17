@@ -7,6 +7,9 @@ internal sealed record ServerOptions
     public int MaxVoicePayloadBytes { get; init; } = 4096;
     public int MaxVoicePacketsPerSecond { get; init; } = 80;
     public int ClientTimeoutSeconds { get; init; } = 30;
+    public string? WordPressVerifyUrl { get; init; }
+    public string? WordPressSharedSecret { get; init; }
+    public int WordPressTimeoutSeconds { get; init; } = 5;
 
     public static ServerOptions FromArgs(string[] args)
     {
@@ -39,6 +42,20 @@ internal sealed record ServerOptions
                 case "--timeout-seconds":
                     if (int.TryParse(args[++i], out int timeoutSeconds) && timeoutSeconds >= 5)
                         options = options with { ClientTimeoutSeconds = timeoutSeconds };
+                    break;
+                case "--wp-verify-url":
+                    string verifyUrl = args[++i].Trim();
+                    if (!string.IsNullOrWhiteSpace(verifyUrl))
+                        options = options with { WordPressVerifyUrl = verifyUrl };
+                    break;
+                case "--wp-shared-secret":
+                    string sharedSecret = args[++i].Trim();
+                    if (!string.IsNullOrWhiteSpace(sharedSecret))
+                        options = options with { WordPressSharedSecret = sharedSecret };
+                    break;
+                case "--wp-timeout-seconds":
+                    if (int.TryParse(args[++i], out int wpTimeoutSeconds) && wpTimeoutSeconds >= 1)
+                        options = options with { WordPressTimeoutSeconds = wpTimeoutSeconds };
                     break;
             }
         }

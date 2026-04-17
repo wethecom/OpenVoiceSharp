@@ -64,6 +64,15 @@ Run it with:
 dotnet run --project OpenVoiceSharp.AuthoritativeServer -- --port 7777
 ```
 
+With optional WordPress auth verification:
+
+```bash
+dotnet run --project OpenVoiceSharp.AuthoritativeServer -- \
+  --port 7777 \
+  --wp-verify-url "https://your-site.com/wp-json/openvoicesharp/v1/verify" \
+  --wp-shared-secret "server-to-wp-shared-secret"
+```
+
 Protocol details are documented in:
 
 - `docs/AUTHORITATIVE_SERVER_PROTOCOL.md`
@@ -75,7 +84,13 @@ Client helper in the main library:
 Example:
 
 ```csharp
-var client = new AuthoritativeVoiceClient("127.0.0.1", 7777, "lobby", "PlayerOne");
+var client = new AuthoritativeVoiceClient(
+    "127.0.0.1",
+    7777,
+    "lobby",
+    "PlayerOne",
+    authToken: "wordpress-access-token"
+);
 await client.ConnectAsync();
 
 client.VoicePacketReceived += (speakerId, sequence, payload, length) =>
@@ -87,7 +102,13 @@ client.VoicePacketReceived += (speakerId, sequence, payload, length) =>
 One-call session helper:
 
 ```csharp
-var session = new AuthoritativeVoiceSession("127.0.0.1", 7777, "lobby", "PlayerOne");
+var session = new AuthoritativeVoiceSession(
+    "127.0.0.1",
+    7777,
+    "lobby",
+    "PlayerOne",
+    authToken: "wordpress-access-token"
+);
 session.VoiceFrameDecoded += (speakerId, sequence, pcmData, length) =>
 {
     // submit pcmData to your playback pipeline

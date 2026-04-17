@@ -7,6 +7,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
 {
     private readonly ServerOptions Options;
     private readonly UdpClient Socket;
+    private readonly WordPressAuthVerifier? WordPressAuthVerifier;
     private readonly Dictionary<Guid, ClientSession> SessionsById = [];
     private readonly Dictionary<string, HashSet<Guid>> RoomMembers = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource StopTokenSource = new();
@@ -15,6 +16,14 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
     {
         Options = options;
         Socket = new UdpClient(new IPEndPoint(IPAddress.Any, Options.Port));
+        if (!string.IsNullOrWhiteSpace(Options.WordPressVerifyUrl))
+        {
+            WordPressAuthVerifier = new WordPressAuthVerifier(
+                Options.WordPressVerifyUrl,
+                Options.WordPressSharedSecret,
+                Options.WordPressTimeoutSeconds
+            );
+        }
     }
 
     public void RequestStop() => StopTokenSource.Cancel();
@@ -22,6 +31,8 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
     public async Task RunAsync()
     {
         Console.WriteLine($"Authoritative voice server listening on udp://0.0.0.0:{Options.Port}");
+        if (WordPressAuthVerifier is not null)
+            Console.WriteLine("WordPress auth verification is enabled.");
         using PeriodicTimer cleanupTimer = new(TimeSpan.FromSeconds(1));
 
         Task receiveLoop = ReceiveLoopAsync(StopTokenSource.Token);
@@ -45,7 +56,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         while (!cancellationToken.IsCancellationRequested)
         {
             UdpReceiveResult result = await Socket.ReceiveAsync(cancellationToken);
-            HandlePacket(result.Buffer, result.RemoteEndPoint);
+            await HandlePacketAsync(result.Buffer, result.RemoteEndPoint, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -67,7 +78,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         }
     }
 
-    private void HandlePacket(byte[] packet, IPEndPoint remoteEndpoint)
+    private async Task HandlePacketAsync(byte[] packet, IPEndPoint remoteEndpoint, CancellationToken cancellationToken)
     {
         if (packet.Length == 0)
             return;
@@ -76,7 +87,10 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         switch (packetType)
         {
             case ClientPacketType.Hello:
-                HandleHello(packet, remoteEndpoint);
+                await HandleHelloAsync(packet, remoteEndpoint, isAuthHello: false, cancellationToken).ConfigureAwait(false);
+                break;
+            case ClientPacketType.AuthHello:
+                await HandleHelloAsync(packet, remoteEndpoint, isAuthHello: true, cancellationToken).ConfigureAwait(false);
                 break;
             case ClientPacketType.Voice:
                 HandleVoice(packet, remoteEndpoint);
@@ -93,12 +107,41 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         }
     }
 
-    private void HandleHello(byte[] packet, IPEndPoint remoteEndpoint)
+    private async Task HandleHelloAsync(
+        byte[] packet,
+        IPEndPoint remoteEndpoint,
+        bool isAuthHello,
+        CancellationToken cancellationToken
+    )
     {
-        if (!Protocol.TryReadHello(packet, out Guid clientId, out string room, out string userName))
+        Guid clientId;
+        string room;
+        string userName;
+        string authToken = string.Empty;
+
+        bool parsed = isAuthHello
+            ? Protocol.TryReadAuthHello(packet, out clientId, out room, out userName, out authToken)
+            : Protocol.TryReadHello(packet, out clientId, out room, out userName);
+        if (!parsed)
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.InvalidPacket, "Invalid hello packet"), remoteEndpoint);
             return;
+        }
+
+        if (WordPressAuthVerifier is not null)
+        {
+            if (!isAuthHello || string.IsNullOrWhiteSpace(authToken))
+            {
+                SendToEndpoint(Protocol.BuildError(ErrorCode.AuthFailed, "Authentication token is required."), remoteEndpoint);
+                return;
+            }
+
+            (bool valid, string message) = await WordPressAuthVerifier.VerifyAsync(authToken, cancellationToken).ConfigureAwait(false);
+            if (!valid)
+            {
+                SendToEndpoint(Protocol.BuildError(ErrorCode.AuthFailed, message), remoteEndpoint);
+                return;
+            }
         }
 
         room = room.Trim();
@@ -282,6 +325,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
     public void Dispose()
     {
         StopTokenSource.Cancel();
+        WordPressAuthVerifier?.Dispose();
         Socket.Dispose();
         StopTokenSource.Dispose();
     }

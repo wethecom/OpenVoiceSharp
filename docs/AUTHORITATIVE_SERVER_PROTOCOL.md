@@ -49,6 +49,21 @@ byte    Type            = 4
 bytes16 ClientId
 ```
 
+### `AuthHello` (`type=5`)
+
+`AuthHello` is required when WordPress verification is enabled on the server.
+
+```text
+byte    Type            = 5
+bytes16 ClientId        (GUID bytes)
+byte    RoomLength
+bytesN  RoomUtf8
+byte    UserLength
+bytesM  UserUtf8
+uint16  TokenLength
+bytesK  AuthTokenUtf8
+```
+
 ## Server -> Client
 
 ### `Welcome` (`type=11`)
@@ -87,6 +102,7 @@ Codes:
 - `4` RoomFull
 - `5` RateLimited
 - `6` PayloadTooLarge
+- `7` AuthFailed
 
 ### `PeerJoined` (`type=14`)
 
@@ -129,3 +145,21 @@ dotnet run --project OpenVoiceSharp.AuthoritativeServer -- \
   --max-pps 80 \
   --timeout-seconds 30
 ```
+
+## WordPress Verification Mode
+
+Enable token verification against a WordPress endpoint:
+
+```bash
+dotnet run --project OpenVoiceSharp.AuthoritativeServer -- \
+  --port 7777 \
+  --wp-verify-url "https://your-site.com/wp-json/openvoicesharp/v1/verify" \
+  --wp-shared-secret "server-to-wp-shared-secret" \
+  --wp-timeout-seconds 5
+```
+
+Server request behavior:
+
+- Sends `Authorization: Bearer <token>` to your `--wp-verify-url`.
+- Sends `X-OpenVoiceSharp-Secret` header when `--wp-shared-secret` is provided.
+- Expects JSON containing one of: `valid`, `success`, or `authenticated` boolean fields (either at root or under `data`).
