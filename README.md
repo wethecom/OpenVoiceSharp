@@ -1,134 +1,76 @@
 # <img src="https://raw.githubusercontent.com/realcoloride/OpenVoiceSharp/master/openvoicesharp.png" alt="OpenVoiceSharp" width="28" height="28"> OpenVoiceSharp
 
-Agnostic VoIP Voice Chat and Audio Streaming C# library.
+A C# voice chat and audio streaming library with an authoritative UDP server.
 
-## Introduction
+## Project Status
 
->[!WARNING]
->This package is not ready to use and is in work in progress. Please come back later!
+OpenVoiceSharp is usable today for Windows x64 projects that want low-latency voice with Opus encoding and a server-authoritative relay model.
 
-**OpenVoiceSharp** is an extremely simple, basic compact library that allows for real time VoIP (Voice over IP) voice chat and audio streaming. It allows for any app or game to embed voice chatting functionality.
+Current status by area:
 
-**OpenVoiceSharp** utilizes **Opus** as codec under the hood and **RNNoise** for basic (toggleable) noise suppression and **WebRTC** VAD (voice activity detection).
+- Core C# library: working
+- Authoritative UDP server: working
+- Unity package: integration scaffold with managed/native dependency packaging
+- Godot package: integration scaffold with demo scene
+- Unreal package: protocol/client scaffold
 
-**OpenVoiceSharp** also has a dedicated class (`VoiceUtilities`) for converting PCM to float formats depending on use cases for engines.
+## What You Get
 
-## Why did I make this?
-
-I believe that voice chat, proximity or not is an essential functionality for game immersion or multiplayer, or discussion. Though, when searching for a friendly open source/free alternative other than Steam's Voice API or Epic Online Services's Voice API, I could not find any, and to make matters worse, it was extremely difficult to get information around how voice chat/audio streaming essentially worked under the hood, which can make difficult for people to make their own voice chat implementation.
-
-Most alternatives are paid (Vivox, Photon Voice, Dissonance etc...) & are mostly compatible for Unity, which can cause an issue for developers using their own game engine, app stack, or game engines like the Godot Engine. 
-
-So upon learning how to make VoIP myself, I decided to share the knowledge into this library to make sure no one has to ever struggle with VoIP again, because I also believe that implementation for such things should be easy to use and implement.
-
-## Features
-
-- 🕓 Agnostic: no specific engine/environment required!
-- ⚡ Easy and friendly to use: all you need is a way to record and playback the audio!
-- 🎙️ Basic microphone recorder class: no way to record the audio correctly or easily? `BasicMicrophoneRecorder` does that!
-- 💥 Low memory footprint: using **Opus**, the packets are ***tiny***! And **OpenVoiceSharp** aims to be as memory efficient and performant as possible.
-- 🎵 Audio streaming favoring: option to encode less for better quality packets for audio streaming and more!
-- 😯 Low latency: **OpenVoiceSharp** aims to be as low latency as possible. **One opus frame is only 20ms!**
-- 🔊 Customizable bitrate: make audio **crystal crisp** or not, it depends on you! (Supports from 8kbps up to 512kbps)
-- 🍃 Basic noise suppression using **RNNoise** (can be toggled)
-- 🧪 Basic voice conversion utilies: convert 16 bit PCM to float 32 PCM and so on.
-- 🗣️ Voice activity detection (VAD): out of the box basic voice activity detection using **WebRTC's VAD**.
-
-> [!NOTE]  
-> **OpenVoiceSharp** is meant to be extremely basic and straightforward. Audio playback, modification (effects or more) and features such as groups, teams, muting should be left to implement by yourself. 
-> _**OpenVoiceSharp** just provides a basic way to encode and decode voice packets along with a basic microphone recorder._
+- Opus encode/decode voice pipeline (`VoiceChatInterface`)
+- Optional RNNoise suppression and WebRTC VAD
+- Microphone capture helper (`BasicMicrophoneRecorder`)
+- Authoritative UDP server project (`OpenVoiceSharp.AuthoritativeServer`)
+- High-level client/session helpers:
+  - `AuthoritativeVoiceClient`
+  - `AuthoritativeVoiceSession`
+- Playback remainder handling helpers:
+  - `ReadSpeakerPlayback(...)`
+  - `FlushSpeakerPlayback(...)`
 
 ## Requirements
 
-- Windows (64 bit)
-- .NET 6.0 and higher or support for .NET Standard 2.1
-- Visual Studio
+- Windows x64
+- .NET 6+ (library also targets .NET Standard 2.1)
+- Native codec/runtime dependencies for Opus/RNNoise/WebRTC VAD
 
-> [!WARNING]
-> **OpenVoiceSharp** currently only supports Windows 64 bit, atleast the dependencies do.
-> I currently do not plan on integrating native support for MacOS, Linux, Android or others but you can compile the libraries yourself and link them.
+## Repository Layout
 
-## Installation & Usage
+- `OpenVoiceSharp.AuthoritativeServer` - authoritative UDP voice server
+- `docs/AUTHORITATIVE_SERVER_PROTOCOL.md` - packet protocol
+- `unity/OpenVoiceSharp.Unity` - Unity integration scaffold
+- `godot/OpenVoiceSharp.Godot` - Godot 4 C# integration scaffold and demo
+- `unreal/OpenVoiceSharpUnreal` - Unreal starter plugin scaffold
 
-Everything you need to know or do can be found [in the wiki](https://github.com/realcoloride/OpenVoiceSharp/wiki).
+## Quick Start
 
-## Authoritative Server
-
-This repository now includes a basic UDP authoritative voice server project:
-
-- `OpenVoiceSharp.AuthoritativeServer`
-
-## Architecture
-
-- `OpenVoiceSharp.AuthoritativeServer` is the authoritative voice server.
-- Unity projects using `unity/OpenVoiceSharp.Unity` act as clients.
-- Unreal projects using `unreal/OpenVoiceSharpUnreal` act as clients (starter scaffold).
-- Godot projects using `godot/OpenVoiceSharp.Godot` act as clients (starter scaffold).
-- Clients capture/encode/send voice and receive/decode/playback routed voice.
-- The server validates and relays voice packets between clients in rooms.
-
-Run it with:
+### 1. Run the server
 
 ```bash
 dotnet run --project OpenVoiceSharp.AuthoritativeServer -- --port 7777
 ```
 
-With optional WordPress auth verification:
+Optional stats endpoint:
 
 ```bash
-dotnet run --project OpenVoiceSharp.AuthoritativeServer -- \
-  --port 7777 \
-  --stats-port 9090 \
-  --wp-verify-url "https://your-site.com/wp-json/openvoicesharp/v1/verify" \
-  --wp-shared-secret "server-to-wp-shared-secret"
+dotnet run --project OpenVoiceSharp.AuthoritativeServer -- --port 7777 --stats-port 9090
 ```
 
-Read runtime stats:
+Read stats:
 
 ```bash
 curl http://127.0.0.1:9090/stats
 ```
 
-Protocol details are documented in:
+Optional WordPress auth verification:
 
-- `docs/AUTHORITATIVE_SERVER_PROTOCOL.md`
-
-Unity integration package (scaffold):
-
-- `unity/OpenVoiceSharp.Unity`
-
-Unreal integration package (scaffold):
-
-- `unreal/OpenVoiceSharpUnreal`
-
-Godot integration package (scaffold):
-
-- `godot/OpenVoiceSharp.Godot`
-- Includes demo scene at `godot/OpenVoiceSharp.Godot/demo/DemoVoiceUI.tscn`
-
-Client helper in the main library:
-
-- `AuthoritativeVoiceClient`
-
-Example:
-
-```csharp
-var client = new AuthoritativeVoiceClient(
-    "127.0.0.1",
-    7777,
-    "lobby",
-    "PlayerOne",
-    authToken: "wordpress-access-token"
-);
-await client.ConnectAsync();
-
-client.VoicePacketReceived += (speakerId, sequence, payload, length) =>
-{
-    // decode payload with VoiceChatInterface.WhenDataReceived(...)
-};
+```bash
+dotnet run --project OpenVoiceSharp.AuthoritativeServer -- \
+  --port 7777 \
+  --wp-verify-url "https://your-site.com/wp-json/openvoicesharp/v1/verify" \
+  --wp-shared-secret "server-to-wp-shared-secret"
 ```
 
-One-call session helper:
+### 2. Connect from client code
 
 ```csharp
 var session = new AuthoritativeVoiceSession(
@@ -138,50 +80,90 @@ var session = new AuthoritativeVoiceSession(
     "PlayerOne",
     authToken: "wordpress-access-token"
 );
+
 session.VoiceFrameDecoded += (speakerId, sequence, pcmData, length) =>
 {
-    // submit pcmData to your playback pipeline
+    // Send PCM to your playback pipeline.
 };
 
 await session.StartAsync();
 ```
 
-Playback remainder handling helper:
+### 3. Read playback safely (no stuck tail audio)
 
 ```csharp
-// In your audio callback requesting fixed-size PCM chunks:
-Guid speakerId = /* target speaker id */;
-byte[] pcmOut = new byte[1920]; // example callback size
+Guid speakerId = /* target speaker */;
+byte[] pcmOut = new byte[1920];
 int copied = session.ReadSpeakerPlayback(speakerId, pcmOut, pcmOut.Length);
-// copied bytes are real data; remaining bytes are already zero-filled (silence)
+// `copied` bytes are real audio; remainder is silence-filled.
 ```
 
-## Contribute
+## Engine Integrations
 
-If you wish to contribute, you have a few ways:
+### Unity
 
-**By supporting the project:**
-- 🗣️ Feedback, ideas, or bug reports can be opened talked through the Discord server or through [Issues](https://github.com/realcoloride/OpenVoiceSharp/issues).
-- 🌟 Leave a star or share this project.
+- Path: `unity/OpenVoiceSharp.Unity`
+- Intended use: production client integration with packaged managed/native dependencies for Windows x64.
 
-**Or sending me a coffee:**
+### Unity 5-Minute Checklist
 
-💖 **I do those projects out of pure passion and love for the craft.** All my open source projects will remain free to use forever. 
+1. Start the server locally:
+   - `dotnet run --project OpenVoiceSharp.AuthoritativeServer -- --port 7777`
+2. Copy `unity/OpenVoiceSharp.Unity` into your Unity project (recommended under `Assets/OpenVoiceSharp.Unity`).
+3. Verify managed plugin DLLs exist under:
+   - `Assets/OpenVoiceSharp.Unity/Plugins/OpenVoiceSharp/`
+4. Verify native plugin DLLs exist under:
+   - `Assets/OpenVoiceSharp.Unity/Plugins/x86_64/`
+5. In Unity, create/connect an `AuthoritativeVoiceSession` using:
+   - host `127.0.0.1`, port `7777`, room `"lobby"`, user `"PlayerOne"`
+6. On decoded frames, submit PCM to your playback path; for fixed-size callbacks use:
+   - `ReadSpeakerPlayback(...)` to avoid stuck remainder audio.
+7. If using WordPress auth on server, pass your token in `authToken` when creating the client/session.
 
-☕ **If you wish to support me, send me a coffee on ko.fi:** https://ko-fi.com/coloride
+### Godot (4 C#)
 
-## Licenses & Disclaimer
+- Path: `godot/OpenVoiceSharp.Godot`
+- Includes demo: `godot/OpenVoiceSharp.Godot/demo/DemoVoiceUI.tscn`
 
-**OpenVoiceSharp** uses the following libraries, so by using **OpenVoiceSharp**, you accept their license's conditions.
+### Unreal
 
-> [!TIP]  
-> Most of the libraries used by **OpenVoiceSharp** are MIT licensed, except for WebRTC's VAD, which contains the license from WebRTC.
+- Path: `unreal/OpenVoiceSharpUnreal`
+- Scope: starter plugin scaffold and UDP protocol client API.
 
-- [NAudio](https://github.com/naudio/NAudio) - Licensed [MIT](https://github.com/naudio/NAudio/blob/master/license.txt)
-- [OpusDotNet](https://github.com/mrphil2105/OpusDotNet) & [Opus](https://opus-codec.org/) - Licensed [MIT](https://github.com/mrphil2105/OpusDotNet/blob/master/LICENSE.md) & [BSD](https://opus-codec.org/license/)
-- [WebRtcVadSharp](https://github.com/ladenedge/WebRtcVadSharp) & [WebRTC](https://webrtc.org/) - Licensed [MIT](https://github.com/ladenedge/WebRtcVadSharp/blob/main/LICENSE) & [Other](https://webrtc.org/support/license)
-- [YellowDogMan.RRNoise.NET](https://github.com/Yellow-Dog-Man/RNNoise.Net) & [RNNoise](https://github.com/xiph/rnnoise) - Licensed [MIT](https://github.com/Yellow-Dog-Man/RNNoise.Net/blob/main/LICENSE) & [BSD](https://github.com/xiph/rnnoise/blob/main/COPYING)
+## Architecture
 
-_As of this library, just good old MIT._
+- Server is authoritative and room-based.
+- Clients send encoded voice frames.
+- Server validates endpoint/session and relays to room peers.
+- Clients decode and feed playback.
+- Optional jitter/playback buffering smooths network variation.
 
-##### &copy; (real)coloride - 2024 | Licensed MIT
+See full packet definitions in:
+
+- `docs/AUTHORITATIVE_SERVER_PROTOCOL.md`
+
+## Notes and Limits
+
+- Current native dependency setup is focused on Windows x64.
+- Engine folders are integration layers around the core server/protocol design.
+- Advanced gameplay voice features (teams, proximity rules, moderation policy, etc.) are intended to be implemented at the game/application layer.
+
+## Contributing
+
+Contributions, bug reports, and feedback are welcome:
+
+- Issues: [GitHub Issues](https://github.com/realcoloride/OpenVoiceSharp/issues)
+
+## License
+
+OpenVoiceSharp is MIT licensed.
+
+This project depends on third-party libraries with their own licenses:
+
+- [NAudio](https://github.com/naudio/NAudio) - MIT
+- [OpusDotNet](https://github.com/mrphil2105/OpusDotNet) - MIT
+- [Opus](https://opus-codec.org/) - BSD
+- [WebRtcVadSharp](https://github.com/ladenedge/WebRtcVadSharp) - MIT
+- [WebRTC VAD](https://webrtc.org/support/license) - WebRTC license terms
+- [YellowDogMan.RRNoise.NET](https://github.com/Yellow-Dog-Man/RNNoise.Net) - MIT
+- [RNNoise](https://github.com/xiph/rnnoise) - BSD
