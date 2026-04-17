@@ -9,13 +9,22 @@ This package provides Unity-side components for OpenVoiceSharp authoritative voi
 
 ## Important Requirement
 
-This package is an integration layer and expects the core `OpenVoiceSharp` assembly to be available in your Unity project.
+This package includes managed and native dependencies for Windows x64:
 
-This package now includes the managed core DLL at:
+- Managed (`Plugins/OpenVoiceSharp/`):
+  - `OpenVoiceSharp.dll`
+  - `OpusDotNet.dll`
+  - `WebRtcVadSharp.dll`
+  - `RNNoise.NET.dll`
+  - `NAudio.Core.dll`
+  - `NAudio.WinMM.dll`
 
-- `Plugins/OpenVoiceSharp/OpenVoiceSharp.dll`
+- Native (`Plugins/x86_64/`):
+  - `opus.dll`
+  - `rnnoise.dll`
+  - `WebRtcVad.dll`
 
-You still need native codec/runtime dependencies required by Opus/RNNoise in your Unity project plugins (typically `Assets/Plugins/x86_64`).
+No extra codec/runtime DLL copy step is required for Windows x64.
 
 ## Quick Setup
 
