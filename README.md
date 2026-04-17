@@ -84,6 +84,10 @@ Protocol details are documented in:
 
 - `docs/AUTHORITATIVE_SERVER_PROTOCOL.md`
 
+Unity integration package (scaffold):
+
+- `unity/OpenVoiceSharp.Unity`
+
 Client helper in the main library:
 
 - `AuthoritativeVoiceClient`
@@ -122,6 +126,16 @@ session.VoiceFrameDecoded += (speakerId, sequence, pcmData, length) =>
 };
 
 await session.StartAsync();
+```
+
+Playback remainder handling helper:
+
+```csharp
+// In your audio callback requesting fixed-size PCM chunks:
+Guid speakerId = /* target speaker id */;
+byte[] pcmOut = new byte[1920]; // example callback size
+int copied = session.ReadSpeakerPlayback(speakerId, pcmOut, pcmOut.Length);
+// copied bytes are real data; remaining bytes are already zero-filled (silence)
 ```
 
 ## Contribute

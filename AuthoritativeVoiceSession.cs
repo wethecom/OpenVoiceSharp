@@ -20,12 +20,14 @@ namespace OpenVoiceSharp
 
         public bool GateOutgoingByVoiceActivity { get; set; } = true;
         public bool EnableJitterBuffer { get; set; } = true;
+        public bool EnableSpeakerPlaybackBuffers { get; set; } = true;
         public int JitterTargetPackets { get; }
         public int JitterMaxPackets { get; }
         public bool IsRunning { get; private set; }
 
         private readonly int ExpectedPcmFrameSize;
         private readonly Dictionary<Guid, VoiceJitterBuffer> SpeakerJitterBuffers = new();
+        private readonly Dictionary<Guid, VoicePlaybackBuffer> SpeakerPlaybackBuffers = new();
         private bool IsDisposed;
         private bool IsSubscribed;
 
@@ -117,6 +119,8 @@ namespace OpenVoiceSharp
 
             UnsubscribeEvents();
             SpeakerJitterBuffers.Clear();
+            lock (SpeakerPlaybackBuffers)
+                SpeakerPlaybackBuffers.Clear();
             IsRunning = false;
         }
 
@@ -210,12 +214,71 @@ namespace OpenVoiceSharp
             try
             {
                 (byte[] decodedData, int decodedLength) = VoiceChatInterface.WhenDataReceived(payload, length);
+
+                if (EnableSpeakerPlaybackBuffers)
+                {
+                    VoicePlaybackBuffer playbackBuffer;
+                    lock (SpeakerPlaybackBuffers)
+                    {
+                        if (!SpeakerPlaybackBuffers.TryGetValue(speakerClientId, out playbackBuffer!))
+                        {
+                            playbackBuffer = new VoicePlaybackBuffer();
+                            SpeakerPlaybackBuffers[speakerClientId] = playbackBuffer;
+                        }
+                    }
+                    playbackBuffer.Enqueue(decodedData, decodedLength);
+                }
+
                 VoiceFrameDecoded?.Invoke(speakerClientId, sequence, decodedData, decodedLength);
             }
             catch (Exception exception)
             {
                 SessionError?.Invoke("Failed to decode incoming voice frame.", exception);
             }
+        }
+
+        /// <summary>
+        /// Reads speaker PCM into output and fills missing bytes with silence.
+        /// Returns copied PCM bytes before silence fill.
+        /// </summary>
+        public int ReadSpeakerPlayback(Guid speakerClientId, byte[] output, int count, int offset = 0)
+        {
+            if (output is null)
+                throw new ArgumentNullException(nameof(output));
+
+            VoicePlaybackBuffer? buffer;
+            lock (SpeakerPlaybackBuffers)
+                SpeakerPlaybackBuffers.TryGetValue(speakerClientId, out buffer);
+
+            if (buffer is null)
+            {
+                if (count > 0)
+                    Array.Clear(output, offset, count);
+                return 0;
+            }
+
+            return buffer.ReadAndFillSilence(output, count, offset);
+        }
+
+        /// <summary>
+        /// Drains and returns all remaining speaker PCM bytes.
+        /// </summary>
+        public byte[] FlushSpeakerPlayback(Guid speakerClientId)
+        {
+            VoicePlaybackBuffer? buffer;
+            lock (SpeakerPlaybackBuffers)
+                SpeakerPlaybackBuffers.TryGetValue(speakerClientId, out buffer);
+
+            return buffer?.Flush() ?? Array.Empty<byte>();
+        }
+
+        /// <summary>
+        /// Returns active speaker ids with playback buffers.
+        /// </summary>
+        public Guid[] GetSpeakersWithPlayback()
+        {
+            lock (SpeakerPlaybackBuffers)
+                return SpeakerPlaybackBuffers.Keys.ToArray();
         }
 
         public void Dispose()

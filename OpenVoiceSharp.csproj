@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <Compile Remove="OpenVoiceSharp.AuthoritativeServer\**\*.cs" />
+    <Compile Remove="unity\**\*.cs" />
     <None Remove="OpenVoiceSharp.AuthoritativeServer\**\*" />
   </ItemGroup>
 

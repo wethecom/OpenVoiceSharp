@@ -1,0 +1,16 @@
+{
+  "name": "OpenVoiceSharp.Unity",
+  "rootNamespace": "OpenVoiceSharp.Unity",
+  "references": [
+    "OpenVoiceSharp"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
