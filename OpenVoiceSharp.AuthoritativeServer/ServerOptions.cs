@@ -10,6 +10,7 @@ internal sealed record ServerOptions
     public string? WordPressVerifyUrl { get; init; }
     public string? WordPressSharedSecret { get; init; }
     public int WordPressTimeoutSeconds { get; init; } = 5;
+    public int StatsPort { get; init; } = 0;
 
     public static ServerOptions FromArgs(string[] args)
     {
@@ -56,6 +57,10 @@ internal sealed record ServerOptions
                 case "--wp-timeout-seconds":
                     if (int.TryParse(args[++i], out int wpTimeoutSeconds) && wpTimeoutSeconds >= 1)
                         options = options with { WordPressTimeoutSeconds = wpTimeoutSeconds };
+                    break;
+                case "--stats-port":
+                    if (int.TryParse(args[++i], out int statsPort) && statsPort >= 0 && statsPort <= 65535)
+                        options = options with { StatsPort = statsPort };
                     break;
             }
         }
