@@ -131,7 +131,7 @@ bytes16 ClientId
 
 - A client can only send voice from the endpoint that sent `Hello`.
 - Voice packets are rate-limited per client.
-- Voice sequence must be strictly increasing.
+- Voice sequence uses a 64-packet anti-replay window (duplicates/replays are dropped, limited out-of-order packets are accepted).
 - Voice payload max size is configurable (`--max-voice-bytes`).
 - Inactive clients are removed automatically (`--timeout-seconds`).
 
@@ -143,7 +143,14 @@ dotnet run --project OpenVoiceSharp.AuthoritativeServer -- \
   --max-room-members 64 \
   --max-voice-bytes 4096 \
   --max-pps 80 \
-  --timeout-seconds 30
+  --timeout-seconds 30 \
+  --stats-port 9090
+```
+
+Read live stats:
+
+```bash
+curl http://127.0.0.1:9090/stats
 ```
 
 ## WordPress Verification Mode

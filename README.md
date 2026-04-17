@@ -69,8 +69,15 @@ With optional WordPress auth verification:
 ```bash
 dotnet run --project OpenVoiceSharp.AuthoritativeServer -- \
   --port 7777 \
+  --stats-port 9090 \
   --wp-verify-url "https://your-site.com/wp-json/openvoicesharp/v1/verify" \
   --wp-shared-secret "server-to-wp-shared-secret"
+```
+
+Read runtime stats:
+
+```bash
+curl http://127.0.0.1:9090/stats
 ```
 
 Protocol details are documented in:
