@@ -19,9 +19,13 @@ namespace OpenVoiceSharp
         public BasicMicrophoneRecorder Recorder { get; }
 
         public bool GateOutgoingByVoiceActivity { get; set; } = true;
+        public bool EnableJitterBuffer { get; set; } = true;
+        public int JitterTargetPackets { get; }
+        public int JitterMaxPackets { get; }
         public bool IsRunning { get; private set; }
 
         private readonly int ExpectedPcmFrameSize;
+        private readonly Dictionary<Guid, VoiceJitterBuffer> SpeakerJitterBuffers = new();
         private bool IsDisposed;
         private bool IsSubscribed;
 
@@ -35,9 +39,16 @@ namespace OpenVoiceSharp
             bool stereo = false,
             bool enableNoiseSuppression = true,
             bool favorAudioStreaming = false,
-            OperatingMode? vadOperatingMode = null
+            OperatingMode? vadOperatingMode = null,
+            int jitterTargetPackets = 3,
+            int jitterMaxPackets = 24
         )
         {
+            if (jitterTargetPackets < 1)
+                throw new ArgumentOutOfRangeException(nameof(jitterTargetPackets));
+            if (jitterMaxPackets < jitterTargetPackets + 2)
+                throw new ArgumentOutOfRangeException(nameof(jitterMaxPackets));
+
             Client = new AuthoritativeVoiceClient(serverHost, serverPort, roomName, userName, authToken);
             VoiceChatInterface = new VoiceChatInterface(
                 bitrate,
@@ -48,6 +59,8 @@ namespace OpenVoiceSharp
             );
             Recorder = new BasicMicrophoneRecorder(stereo);
             ExpectedPcmFrameSize = VoiceUtilities.GetSampleSize(stereo ? 2 : 1);
+            JitterTargetPackets = jitterTargetPackets;
+            JitterMaxPackets = jitterMaxPackets;
         }
 
         /// <summary>
@@ -103,6 +116,7 @@ namespace OpenVoiceSharp
             }
 
             UnsubscribeEvents();
+            SpeakerJitterBuffers.Clear();
             IsRunning = false;
         }
 
@@ -166,6 +180,32 @@ namespace OpenVoiceSharp
         }
 
         private void OnVoicePacketReceived(Guid speakerClientId, uint sequence, byte[] payload, int length)
+        {
+            if (!EnableJitterBuffer)
+            {
+                DecodeAndEmit(speakerClientId, sequence, payload, length);
+                return;
+            }
+
+            try
+            {
+                if (!SpeakerJitterBuffers.TryGetValue(speakerClientId, out VoiceJitterBuffer? buffer))
+                {
+                    buffer = new VoiceJitterBuffer(JitterTargetPackets, JitterMaxPackets);
+                    SpeakerJitterBuffers[speakerClientId] = buffer;
+                }
+
+                buffer.Add(sequence, payload, length);
+                foreach ((uint bufferedSequence, byte[] bufferedPayload) in buffer.DrainReady())
+                    DecodeAndEmit(speakerClientId, bufferedSequence, bufferedPayload, bufferedPayload.Length);
+            }
+            catch (Exception exception)
+            {
+                SessionError?.Invoke("Failed to decode incoming voice frame.", exception);
+            }
+        }
+
+        private void DecodeAndEmit(Guid speakerClientId, uint sequence, byte[] payload, int length)
         {
             try
             {

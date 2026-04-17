@@ -9,8 +9,8 @@ internal sealed class ClientSession
     public string UserName { get; set; }
     public IPEndPoint Endpoint { get; set; }
     public DateTime LastSeenUtc { get; set; }
-    public uint LastVoiceSequence { get; set; }
     public TokenBucket VoiceRateLimiter { get; }
+    public SequenceWindow VoiceSequenceWindow { get; } = new();
 
     public ClientSession(Guid clientId, string roomName, string userName, IPEndPoint endpoint, int maxVoicePacketsPerSecond)
     {

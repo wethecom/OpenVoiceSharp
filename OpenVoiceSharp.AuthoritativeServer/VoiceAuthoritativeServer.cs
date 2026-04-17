@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json;
+using System.Threading;
 
 namespace OpenVoiceSharp.AuthoritativeServer;
 
@@ -11,6 +13,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
     private readonly Dictionary<Guid, ClientSession> SessionsById = [];
     private readonly Dictionary<string, HashSet<Guid>> RoomMembers = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource StopTokenSource = new();
+    private readonly ServerMetrics Metrics = new();
 
     public VoiceAuthoritativeServer(ServerOptions options)
     {
@@ -62,6 +65,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
 
     private async Task CleanupLoopAsync(PeriodicTimer timer, CancellationToken cancellationToken)
     {
+        int ticks = 0;
         while (await timer.WaitForNextTickAsync(cancellationToken))
         {
             DateTime cutoffUtc = DateTime.UtcNow.AddSeconds(-Options.ClientTimeoutSeconds);
@@ -75,6 +79,10 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
 
             foreach (Guid staleClientId in staleClientIds)
                 RemoveClient(staleClientId, notifyRoom: true);
+
+            ticks++;
+            if (ticks % 10 == 0)
+                LogMetrics();
         }
     }
 
@@ -82,27 +90,33 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
     {
         if (packet.Length == 0)
             return;
+        Interlocked.Increment(ref Metrics.PacketsReceived);
 
         ClientPacketType packetType = (ClientPacketType)packet[0];
         switch (packetType)
         {
             case ClientPacketType.Hello:
+                Interlocked.Increment(ref Metrics.HelloPackets);
                 await HandleHelloAsync(packet, remoteEndpoint, isAuthHello: false, cancellationToken).ConfigureAwait(false);
                 break;
             case ClientPacketType.AuthHello:
+                Interlocked.Increment(ref Metrics.AuthHelloPackets);
                 await HandleHelloAsync(packet, remoteEndpoint, isAuthHello: true, cancellationToken).ConfigureAwait(false);
                 break;
             case ClientPacketType.Voice:
+                Interlocked.Increment(ref Metrics.VoicePacketsReceived);
                 HandleVoice(packet, remoteEndpoint);
                 break;
             case ClientPacketType.Leave:
                 HandleLeave(packet, remoteEndpoint);
                 break;
             case ClientPacketType.Ping:
+                Interlocked.Increment(ref Metrics.PingPackets);
                 HandlePing(packet, remoteEndpoint);
                 break;
             default:
                 SendToEndpoint(Protocol.BuildError(ErrorCode.InvalidPacket, "Unknown packet type"), remoteEndpoint);
+                Interlocked.Increment(ref Metrics.InvalidPacketsDropped);
                 break;
         }
     }
@@ -125,6 +139,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         if (!parsed)
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.InvalidPacket, "Invalid hello packet"), remoteEndpoint);
+            Interlocked.Increment(ref Metrics.InvalidPacketsDropped);
             return;
         }
 
@@ -133,6 +148,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
             if (!isAuthHello || string.IsNullOrWhiteSpace(authToken))
             {
                 SendToEndpoint(Protocol.BuildError(ErrorCode.AuthFailed, "Authentication token is required."), remoteEndpoint);
+                Interlocked.Increment(ref Metrics.AuthFailures);
                 return;
             }
 
@@ -140,6 +156,8 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
             if (!valid)
             {
                 SendToEndpoint(Protocol.BuildError(ErrorCode.AuthFailed, message), remoteEndpoint);
+                Interlocked.Increment(ref Metrics.AuthFailures);
+                LogEvent("auth_failed", ("endpoint", remoteEndpoint.ToString()), ("reason", message));
                 return;
             }
         }
@@ -149,6 +167,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         if (room.Length == 0 || room.Length > 64 || userName.Length == 0 || userName.Length > 64)
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.InvalidPacket, "Invalid room or user name"), remoteEndpoint);
+            Interlocked.Increment(ref Metrics.InvalidPacketsDropped);
             return;
         }
 
@@ -169,11 +188,12 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
             session = new ClientSession(clientId, room, userName, remoteEndpoint, Options.MaxVoicePacketsPerSecond);
             SessionsById[clientId] = session;
             existingRoomMembers.Add(clientId);
+            Interlocked.Increment(ref Metrics.ClientsJoined);
 
             SendToEndpoint(Protocol.BuildWelcome(clientId), remoteEndpoint);
             BroadcastToRoom(room, Protocol.BuildPeerJoined(clientId, userName), exceptClientId: clientId);
 
-            Console.WriteLine($"Client {clientId} joined room '{room}' as '{userName}' from {remoteEndpoint}");
+            LogEvent("client_joined", ("clientId", clientId), ("room", room), ("user", userName), ("endpoint", remoteEndpoint.ToString()));
             return;
         }
 
@@ -198,7 +218,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         session.LastSeenUtc = DateTime.UtcNow;
 
         SendToEndpoint(Protocol.BuildWelcome(clientId), remoteEndpoint);
-        Console.WriteLine($"Client {clientId} refreshed session in room '{room}' from {remoteEndpoint}");
+        LogEvent("client_refreshed", ("clientId", clientId), ("room", room), ("endpoint", remoteEndpoint.ToString()));
     }
 
     private void HandleVoice(byte[] packet, IPEndPoint remoteEndpoint)
@@ -206,6 +226,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         if (!Protocol.TryReadVoice(packet, out Guid clientId, out uint sequence, out ReadOnlySpan<byte> payload))
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.InvalidPacket, "Invalid voice packet"), remoteEndpoint);
+            Interlocked.Increment(ref Metrics.InvalidPacketsDropped);
             return;
         }
 
@@ -218,29 +239,34 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         if (!EndpointsEqual(session.Endpoint, remoteEndpoint))
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.UnauthorizedEndpoint, "Invalid source endpoint"), remoteEndpoint);
+            Interlocked.Increment(ref Metrics.InvalidPacketsDropped);
             return;
         }
 
         if (payload.Length == 0 || payload.Length > Options.MaxVoicePayloadBytes)
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.PayloadTooLarge, "Voice payload out of range"), remoteEndpoint);
+            Interlocked.Increment(ref Metrics.PayloadDropped);
             return;
         }
 
         if (!session.VoiceRateLimiter.TryConsume(1))
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.RateLimited, "Voice packet rate exceeded"), remoteEndpoint);
+            Interlocked.Increment(ref Metrics.RateLimitedDropped);
             return;
         }
 
-        if (sequence <= session.LastVoiceSequence)
+        if (!session.VoiceSequenceWindow.TryAccept(sequence))
+        {
+            Interlocked.Increment(ref Metrics.ReplayDropped);
             return;
-
-        session.LastVoiceSequence = sequence;
+        }
         session.LastSeenUtc = DateTime.UtcNow;
 
         byte[] relayPacket = Protocol.BuildVoiceRelay(clientId, sequence, payload);
         BroadcastToRoom(session.RoomName, relayPacket, exceptClientId: clientId);
+        Interlocked.Increment(ref Metrics.VoicePacketsRelayed);
     }
 
     private void HandleLeave(byte[] packet, IPEndPoint remoteEndpoint)
@@ -248,6 +274,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         if (!Protocol.TryReadLeave(packet, out Guid clientId))
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.InvalidPacket, "Invalid leave packet"), remoteEndpoint);
+            Interlocked.Increment(ref Metrics.InvalidPacketsDropped);
             return;
         }
 
@@ -257,6 +284,7 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         if (!EndpointsEqual(session.Endpoint, remoteEndpoint))
         {
             SendToEndpoint(Protocol.BuildError(ErrorCode.UnauthorizedEndpoint, "Invalid source endpoint"), remoteEndpoint);
+            Interlocked.Increment(ref Metrics.InvalidPacketsDropped);
             return;
         }
 
@@ -300,8 +328,9 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
 
         if (notifyRoom)
             BroadcastToRoom(session.RoomName, Protocol.BuildPeerLeft(clientId), exceptClientId: clientId);
+        Interlocked.Increment(ref Metrics.ClientsLeft);
 
-        Console.WriteLine($"Client {clientId} left room '{session.RoomName}'");
+        LogEvent("client_left", ("clientId", clientId), ("room", session.RoomName));
     }
 
     private void RemoveFromRoom(Guid clientId, string roomName)
@@ -316,6 +345,9 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
 
     private void SendToEndpoint(byte[] packet, IPEndPoint endpoint)
     {
+        if (packet.Length > 0 && packet[0] == (byte)ServerPacketType.Error)
+            Interlocked.Increment(ref Metrics.ErrorPacketsSent);
+
         _ = Socket.SendAsync(packet, endpoint);
     }
 
@@ -328,5 +360,42 @@ internal sealed class VoiceAuthoritativeServer : IDisposable
         WordPressAuthVerifier?.Dispose();
         Socket.Dispose();
         StopTokenSource.Dispose();
+    }
+
+    private void LogMetrics()
+    {
+        LogEvent(
+            "metrics",
+            ("activeClients", SessionsById.Count),
+            ("activeRooms", RoomMembers.Count),
+            ("packetsReceived", Interlocked.Read(ref Metrics.PacketsReceived)),
+            ("helloPackets", Interlocked.Read(ref Metrics.HelloPackets)),
+            ("authHelloPackets", Interlocked.Read(ref Metrics.AuthHelloPackets)),
+            ("voicePacketsReceived", Interlocked.Read(ref Metrics.VoicePacketsReceived)),
+            ("voicePacketsRelayed", Interlocked.Read(ref Metrics.VoicePacketsRelayed)),
+            ("pingPackets", Interlocked.Read(ref Metrics.PingPackets)),
+            ("errorPacketsSent", Interlocked.Read(ref Metrics.ErrorPacketsSent)),
+            ("invalidPacketsDropped", Interlocked.Read(ref Metrics.InvalidPacketsDropped)),
+            ("payloadDropped", Interlocked.Read(ref Metrics.PayloadDropped)),
+            ("rateLimitedDropped", Interlocked.Read(ref Metrics.RateLimitedDropped)),
+            ("replayDropped", Interlocked.Read(ref Metrics.ReplayDropped)),
+            ("authFailures", Interlocked.Read(ref Metrics.AuthFailures)),
+            ("clientsJoined", Interlocked.Read(ref Metrics.ClientsJoined)),
+            ("clientsLeft", Interlocked.Read(ref Metrics.ClientsLeft))
+        );
+    }
+
+    private static void LogEvent(string eventName, params (string key, object? value)[] fields)
+    {
+        Dictionary<string, object?> payload = new(StringComparer.Ordinal)
+        {
+            ["ts"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["event"] = eventName
+        };
+
+        foreach ((string key, object? value) in fields)
+            payload[key] = value;
+
+        Console.WriteLine(JsonSerializer.Serialize(payload));
     }
 }
