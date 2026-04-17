@@ -2,6 +2,13 @@
 
 This package provides Unity-side components for OpenVoiceSharp authoritative voice usage.
 
+## Architecture
+
+- This Unity package is the client-side layer.
+- It connects to the authoritative server project:
+  - `OpenVoiceSharp.AuthoritativeServer`
+- The server performs room/session validation and packet relaying.
+
 ## Included Runtime Components
 
 - `UnityVoiceSessionBehaviour`

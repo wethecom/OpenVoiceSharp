@@ -1,0 +1,23 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "OpenVoiceSharp Unreal",
+  "Description": "Unreal integration scaffold for OpenVoiceSharp authoritative voice server protocol.",
+  "Category": "Networking",
+  "CreatedBy": "OpenVoiceSharp",
+  "CreatedByURL": "https://github.com",
+  "DocsURL": "",
+  "MarketplaceURL": "",
+  "SupportURL": "",
+  "CanContainContent": false,
+  "IsBetaVersion": true,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "OpenVoiceSharpUnreal",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

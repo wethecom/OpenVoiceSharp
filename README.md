@@ -58,6 +58,15 @@ This repository now includes a basic UDP authoritative voice server project:
 
 - `OpenVoiceSharp.AuthoritativeServer`
 
+## Architecture
+
+- `OpenVoiceSharp.AuthoritativeServer` is the authoritative voice server.
+- Unity projects using `unity/OpenVoiceSharp.Unity` act as clients.
+- Unreal projects using `unreal/OpenVoiceSharpUnreal` act as clients (starter scaffold).
+- Godot projects using `godot/OpenVoiceSharp.Godot` act as clients (starter scaffold).
+- Clients capture/encode/send voice and receive/decode/playback routed voice.
+- The server validates and relays voice packets between clients in rooms.
+
 Run it with:
 
 ```bash
@@ -87,6 +96,15 @@ Protocol details are documented in:
 Unity integration package (scaffold):
 
 - `unity/OpenVoiceSharp.Unity`
+
+Unreal integration package (scaffold):
+
+- `unreal/OpenVoiceSharpUnreal`
+
+Godot integration package (scaffold):
+
+- `godot/OpenVoiceSharp.Godot`
+- Includes demo scene at `godot/OpenVoiceSharp.Godot/demo/DemoVoiceUI.tscn`
 
 Client helper in the main library:
 

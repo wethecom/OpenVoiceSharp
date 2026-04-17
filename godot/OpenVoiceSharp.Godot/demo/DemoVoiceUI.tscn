@@ -1,0 +1,122 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://demo/DemoVoiceUI.cs" id="1_9h0w4"]
+
+[node name="DemoVoiceUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_9h0w4")
+
+[node name="Root" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Root"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="Root/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Root/Margin/VBox"]
+layout_mode = 2
+text = "OpenVoiceSharp Godot Voice Demo"
+
+[node name="ConnectionGrid" type="GridContainer" parent="Root/Margin/VBox"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="ServerHostLabel" type="Label" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+text = "Server Host"
+
+[node name="ServerHost" type="LineEdit" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+text = "127.0.0.1"
+
+[node name="ServerPortLabel" type="Label" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+text = "Server Port"
+
+[node name="ServerPort" type="SpinBox" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+min_value = 1.0
+max_value = 65535.0
+value = 7777.0
+
+[node name="RoomNameLabel" type="Label" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+text = "Room"
+
+[node name="RoomName" type="LineEdit" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+text = "lobby"
+
+[node name="UserNameLabel" type="Label" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+text = "User"
+
+[node name="UserName" type="LineEdit" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+text = "GodotPlayer"
+
+[node name="AuthTokenLabel" type="Label" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+text = "Auth Token"
+
+[node name="AuthToken" type="LineEdit" parent="Root/Margin/VBox/ConnectionGrid"]
+layout_mode = 2
+secret = true
+
+[node name="ButtonRow" type="HBoxContainer" parent="Root/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ConnectButton" type="Button" parent="Root/Margin/VBox/ButtonRow"]
+layout_mode = 2
+text = "Connect"
+
+[node name="DisconnectButton" type="Button" parent="Root/Margin/VBox/ButtonRow"]
+layout_mode = 2
+disabled = true
+text = "Disconnect"
+
+[node name="PushToTalkMode" type="CheckButton" parent="Root/Margin/VBox/ButtonRow"]
+layout_mode = 2
+text = "Push-To-Talk"
+
+[node name="HoldToTalkButton" type="Button" parent="Root/Margin/VBox/ButtonRow"]
+layout_mode = 2
+disabled = true
+text = "Hold To Talk"
+
+[node name="Status" type="Label" parent="Root/Margin/VBox"]
+layout_mode = 2
+text = "Status: Idle"
+
+[node name="LogOutput" type="RichTextLabel" parent="Root/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = false
+scroll_following = true
+fit_content = false
+
+[node name="PlaybackPlayer" type="AudioStreamPlayer" parent="."]
+
+[node name="PlaybackTimer" type="Timer" parent="."]
+wait_time = 0.02
+autostart = true

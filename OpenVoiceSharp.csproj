@@ -27,6 +27,8 @@
   <ItemGroup>
     <Compile Remove="OpenVoiceSharp.AuthoritativeServer\**\*.cs" />
     <Compile Remove="unity\**\*.cs" />
+    <Compile Remove="unreal\**\*.cs" />
+    <Compile Remove="godot\**\*.cs" />
     <None Remove="OpenVoiceSharp.AuthoritativeServer\**\*" />
   </ItemGroup>
 
